@@ -1,8 +1,5 @@
 import argparse
 import datetime
-from keras.models import Sequential
-from keras.layers import Dense, LSTM
-from keras.callbacks import ModelCheckpoint
 import logging
 import math
 import matplotlib.pyplot as plt
@@ -10,6 +7,9 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM
+from tensorflow.keras.callbacks import ModelCheckpoint
 import time
 
 
