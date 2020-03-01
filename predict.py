@@ -13,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 import time
 
 
-LIMIT_TRAINING = True
+LIMIT_TRAINING = False
 
 
 def read_args():
@@ -21,6 +21,8 @@ def read_args():
     parser = argparse.ArgumentParser(
         description='Predicting bitcoin prices with RNN and LSTM')
     parser.add_argument('csv_filename', nargs=1, help='csv file name')
+    parser.add_argument('--colab', action='store_true', default=False,
+                        help='execution on google colab, mounts gdrive')
     return parser.parse_args()
 
 
@@ -41,6 +43,11 @@ def dataframe_info(data):
     """Build a string with useful characteristics of the dataframe"""
     return f'data: {"*".join(map(str,data.shape))} elements, ' + \
            f'{data.memory_usage().sum():_} bytes'
+
+
+def mount_gdrive(path='/content/gdrive'):
+    from google.colab import drive
+    drive.mount(path)
 
 
 def read_values(csv_filename):
@@ -81,9 +88,6 @@ def prepare(data):
     for i in range(60, training_data_len):
         x_train.append(scaled_data[i-60:i, 0])
         y_train.append(scaled_data[i, 0])
-    # log.debug('x_train[0]:\n%s', x_train[0])
-    # log.debug('y_train[0]:\n%s', y_train[0])
-    # log.debug('x_train[1]:\n%s', x_train[1])
 
     return np.array(x_train), np.array(y_train)
 
@@ -125,9 +129,15 @@ if __name__ == "__main__":
     log = logging.getLogger(__name__)
     log.info('starting')
     args = read_args()
+
+    if args.colab:
+        log.info('mounting gdrive')
+        mount_gdrive()
+
     log.info('reading csv')
     data = read_values(args.csv_filename[0])
     log.debug('Sample data:\n' + data.to_string(max_rows=10))
+
     x_train, y_train = prepare(data)
     model = create_LSTM()
     train_LSTM(x_train, y_train, model=model)
