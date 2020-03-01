@@ -1,0 +1,7 @@
+Keras
+matplotlib
+numpy
+pandas
+PyQt5
+sklearn
+tensorflow
