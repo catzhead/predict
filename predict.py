@@ -13,9 +13,6 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 import time
 
 
-LIMIT_TRAINING = False
-
-
 def read_args():
     """Read the command line arguments and returns the populated namespace"""
     parser = argparse.ArgumentParser(
@@ -73,11 +70,16 @@ def read_values(csv_filename):
     return data
 
 
+def resample(data):
+    resampled = data.resample('1D').first()
+    log.debug(dataframe_info(resampled))
+    log.debug('resampled data:\n' + resampled.to_string(max_rows=30))
+    return resampled
+
+
 def prepare(data):
-    npdata = data.values
+    npdata = data.values  # convert to nparray
     training_data_len = math.ceil(len(npdata)*0.8)
-    if LIMIT_TRAINING:
-        training_data_len = 10000
     log.info('training data length: %d', training_data_len)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -88,6 +90,7 @@ def prepare(data):
     for i in range(60, training_data_len):
         x_train.append(scaled_data[i-60:i, 0])
         y_train.append(scaled_data[i, 0])
+    log.info('recreated training data length: %d', len(x_train))
 
     return np.array(x_train), np.array(y_train)
 
@@ -136,8 +139,11 @@ if __name__ == "__main__":
 
     log.info('reading csv')
     data = read_values(args.csv_filename[0])
-    log.debug('Sample data:\n' + data.to_string(max_rows=10))
+    log.debug('Sample data:\n' + data.to_string(max_rows=30))
 
-    x_train, y_train = prepare(data)
+    log.info('resampling data')
+    resampled_data = resample(data)
+
+    x_train, y_train = prepare(resampled_data)
     model = create_LSTM()
     train_LSTM(x_train, y_train, model=model)
