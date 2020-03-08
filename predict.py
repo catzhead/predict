@@ -139,11 +139,13 @@ if __name__ == "__main__":
 
     log.info('reading csv')
     data = read_values(args.csv_filename[0])
-    log.debug('Sample data:\n' + data.to_string(max_rows=30))
+    log.debug('sample data:\n' + data.to_string(max_rows=30))
 
     log.info('resampling data')
     resampled_data = resample(data)
 
+    log.info('preparing training data')
     x_train, y_train = prepare(resampled_data)
+
     model = create_LSTM()
     train_LSTM(x_train, y_train, model=model)
