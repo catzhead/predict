@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense, LSTM
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 import time
 
 
@@ -72,6 +73,7 @@ def read_values(csv_filename):
 
 def resample(data):
     resampled = data.resample('1D').first()
+    resampled.dropna(inplace=True)
     log.debug(dataframe_info(resampled))
     log.debug('resampled data:\n' + resampled.to_string(max_rows=30))
     return resampled
@@ -92,7 +94,15 @@ def prepare(data):
         y_train.append(scaled_data[i, 0])
     log.info('recreated training data length: %d', len(x_train))
 
-    return np.array(x_train), np.array(y_train)
+    x_val = []
+    y_val = []
+    for i in range(training_data_len+60, len(scaled_data)):
+        x_val.append(scaled_data[i-60:i, 0])
+        y_val.append(scaled_data[i, 0])
+    log.info('recreated validation data length: %d', len(x_val))
+
+    return (np.array(x_train), np.array(y_train)),\
+           (np.array(x_val), np.array(y_val))
 
 
 def create_LSTM():
@@ -103,14 +113,25 @@ def create_LSTM():
     model.add(Dense(25))
     model.add(Dense(1))
 
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    optimizer = Adam(learning_rate=1e-5)
+
+    model.compile(optimizer=optimizer,
+                  loss='mean_squared_error',
+                  metrics=['accuracy'])
 
     model.summary()
 
     return model
 
 
-def train_LSTM(x_train, y_train, model=None, ckpt_basedir='ckpt'):
+def train_LSTM(x_train,
+               y_train,
+               x_val,
+               y_val,
+               model=None,
+               epochs=1,
+               ckpt_basedir='ckpt',
+               log_basedir='log'):
     current_datetime = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
     checkpoint_path = os.path.join(ckpt_basedir, current_datetime)
     # checkpoint_dir = os.path.dirname(checkpoint_path)
@@ -120,11 +141,22 @@ def train_LSTM(x_train, y_train, model=None, ckpt_basedir='ckpt'):
                                   save_weights_only=True,
                                   verbose=1)
 
+    # Callback for tensorboard
+    log_path = os.path.join(log_basedir, 'fit', current_datetime)
+    tb_callback = TensorBoard(log_dir=log_path,
+                              profile_batch=0,  # tf bug 2412 workaround
+                              histogram_freq=1)
+
     # need a 3rd column for LSTM
     x_train = np.reshape(x_train, x_train.shape + (1,))
+    x_val = np.reshape(x_val, x_val.shape + (1,))
 
-    model.fit(x_train, y_train, batch_size=1, epochs=1,
-              callbacks=[cp_callback])
+    if model is not None:
+        model.fit(x_train, y_train,
+                  batch_size=1,
+                  epochs=epochs,
+                  validation_data=(x_val, y_val),
+                  callbacks=[tb_callback, cp_callback])  # order is important
 
 
 if __name__ == "__main__":
@@ -145,7 +177,9 @@ if __name__ == "__main__":
     resampled_data = resample(data)
 
     log.info('preparing training data')
-    x_train, y_train = prepare(resampled_data)
+    (x_train, y_train), (x_val, y_val) = prepare(resampled_data)
 
     model = create_LSTM()
-    train_LSTM(x_train, y_train, model=model)
+    train_LSTM(x_train, y_train,
+               x_val, y_val,
+               model=model, epochs=5)
