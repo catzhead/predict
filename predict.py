@@ -29,11 +29,12 @@ def date_parser(time_in_secs):
     return datetime.datetime.fromtimestamp(float(time_in_secs))
 
 
-def plot(data):
+def plot(data_list):
     """Plot a DataFrame using matplotlib"""
     plt.style.use('ggplot')
     plt.close('all')
-    data.plot()
+    for data in data_list:
+        plt.plot(data)
     plt.show()
 
 
@@ -157,6 +158,8 @@ def train_LSTM(x_train,
                   epochs=epochs,
                   validation_data=(x_val, y_val),
                   callbacks=[tb_callback, cp_callback])  # order is important
+
+    plot([y_val, model.predict(x_val)])
 
 
 if __name__ == "__main__":
